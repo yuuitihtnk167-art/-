@@ -276,6 +276,133 @@
     .btn-danger-wide:active { background-color: #b91c1c; }
   </style>
 </head>
+<script>
+  (function(){
+    let audioCtx = null;
+    let played = false;
+
+    function createAudioContext() {
+      if (audioCtx) return audioCtx;
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      audioCtx = new C();
+      return audioCtx;
+    }
+
+    function makeNoiseBuffer(ctx, duration = 0.5) {
+      const rate = ctx.sampleRate;
+      const len = Math.floor(rate * duration);
+      const buf = ctx.createBuffer(1, len, rate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-3 * i / len); // 短い減衰ノイズ
+      }
+      return buf;
+    }
+
+    function playTruckHorn() {
+      if (played) return;
+      const ctx = createAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // メインのトーン（2つのオシレータで厚みを出す）
+      const o1 = ctx.createOscillator();
+      const o2 = ctx.createOscillator();
+      o1.type = 'sawtooth';
+      o2.type = 'sawtooth';
+      o1.frequency.setValueAtTime(220, now);   // 基本周波数（低めでホーン感）
+      o2.frequency.setValueAtTime(277.5, now); // 第2音で少し不協和を作る
+      o2.detune.value = 10;
+
+      // ノイズでエッジを作る（アタックに混ぜる）
+      const noise = ctx.createBufferSource();
+      noise.buffer = makeNoiseBuffer(ctx, 0.25);
+
+      // 波形を歪ませる（荒々しさ）
+      const waveShaper = ctx.createWaveShaper();
+      function makeDistortion(amount = 400) {
+        const k = typeof amount === 'number' ? amount : 50;
+        const n = 44100;
+        const curve = new Float32Array(n);
+        const deg = Math.PI / 180;
+        for (let i = 0; i < n; ++i) {
+          const x = (i * 2) / n - 1;
+          curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+        }
+        return curve;
+      }
+      waveShaper.curve = makeDistortion(200);
+      waveShaper.oversample = '2x';
+
+      // フィルタでホーンらしさ調整
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(2000, now);
+      filter.Q.setValueAtTime(1, now);
+
+      // 全体ゲイン（エンベロープで制御）
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+
+      // 接続
+      o1.connect(waveShaper);
+      o2.connect(waveShaper);
+      waveShaper.connect(filter);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      // エンベロープ（短く力強いホーン）
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(1.0, now + 0.02);   // すぐ立ち上げ
+      gain.gain.exponentialRampToValueAtTime(0.5, now + 0.12);   // 少し落とす（持続）
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.7); // フェードアウト
+
+      // ピッチモジュレーションでホーンらしい揺らぎ
+      o1.frequency.setValueAtTime(220, now);
+      o1.frequency.exponentialRampToValueAtTime(200, now + 0.6);
+      o2.frequency.setValueAtTime(277.5, now);
+      o2.frequency.exponentialRampToValueAtTime(250, now + 0.6);
+
+      // 再生開始／停止
+      o1.start(now);
+      o2.start(now);
+      noise.start(now);
+
+      o1.stop(now + 0.8);
+      o2.stop(now + 0.8);
+      noise.stop(now + 0.25);
+
+      played = true;
+    }
+
+    function tryPlayOnLoad() {
+      const ctx = createAudioContext();
+      if (!ctx) return;
+      ctx.resume().then(() => {
+        try { playTruckHorn(); } catch (e) {}
+      }).catch(() => {
+        // 自動再生ブロック → 最初のユーザー操作で再生
+        const onFirst = () => {
+          ctx.resume().then(() => { playTruckHorn(); }).catch(()=>{});
+          window.removeEventListener('pointerdown', onFirst);
+        };
+        window.addEventListener('pointerdown', onFirst, { once: true });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', tryPlayOnLoad);
+    } else {
+      tryPlayOnLoad();
+    }
+
+    // 手動呼び出し用
+    window.playTruckHorn = playTruckHorn;
+  })();
+</script>
 <body>
 
 <header><h1>🚛 トラック燃費記録</h1></header>
