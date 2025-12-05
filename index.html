@@ -5,12 +5,14 @@
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>燃費記録ランチャー</title>
-  <meta name="theme-color" content="#1f2937">
+  <meta name="theme-color" content="#0f172a">
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⛽</text></svg>">
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: #111827;
+      --bg: #020617;
+      --card-bg: rgba(15,23,42,0.96);
+      --border: rgba(148,163,184,0.4);
       --accent-truck: #3b82f6;
       --accent-cub: #10b981;
       --text-main: #f9fafb;
@@ -23,8 +25,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: radial-gradient(circle at top, #1e293b, #020617);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, #1e293b, #020617);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
       color: var(--text-main);
     }
     .wrapper {
@@ -33,23 +37,21 @@
       padding: 1.5rem;
     }
     .card {
-      background: rgba(15,23,42,0.95);
+      background: var(--card-bg);
       border-radius: 18px;
-      padding: 1.5rem 1.5rem 1.75rem;
-      box-shadow: 0 20px 45px rgba(0,0,0,0.6);
-      border: 1px solid rgba(148,163,184,0.35);
-      backdrop-filter: blur(10px);
+      padding: 1.5rem 1.4rem 1.7rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 22px 45px rgba(0,0,0,0.65);
+      backdrop-filter: blur(12px);
     }
     h1 {
-      margin: 0 0 0.25rem;
-      font-size: 1.25rem;
+      margin: 0 0 0.3rem;
+      font-size: 1.3rem;
       display: flex;
       align-items: center;
       gap: 0.4rem;
     }
-    h1 span.logo {
-      font-size: 1.4rem;
-    }
+    h1 span.logo { font-size: 1.5rem; }
     .subtitle {
       font-size: 0.9rem;
       color: var(--text-sub);
@@ -63,8 +65,8 @@
     .btn-group {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
-      margin-top: 0.5rem;
+      gap: 0.8rem;
+      margin-top: 0.4rem;
     }
     .btn {
       width: 100%;
@@ -78,23 +80,25 @@
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, background 0.15s;
-      color: white;
+      color: #f9fafb;
+      transition:
+        transform 0.08s ease-out,
+        box-shadow 0.08s ease-out,
+        filter 0.15s;
     }
-    .btn span.icon {
-      font-size: 1.3rem;
-    }
+    .btn span.icon { font-size: 1.3rem; }
     .btn-truck {
       background: linear-gradient(135deg, var(--accent-truck), #1d4ed8);
-      box-shadow: 0 10px 25px rgba(37,99,235,0.4);
+      box-shadow: 0 12px 30px rgba(37,99,235,0.5);
     }
     .btn-cub {
       background: linear-gradient(135deg, var(--accent-cub), #059669);
-      box-shadow: 0 10px 25px rgba(16,185,129,0.4);
+      box-shadow: 0 12px 30px rgba(16,185,129,0.5);
     }
     .btn:active {
-      transform: translateY(1px) scale(0.99);
-      box-shadow: 0 6px 15px rgba(0,0,0,0.5);
+      transform: translateY(1px) scale(0.985);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.6);
+      filter: brightness(0.97);
     }
     .hint {
       font-size: 0.75rem;
@@ -103,18 +107,25 @@
       text-align: right;
     }
     .hint code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                   "Liberation Mono", "Courier New", monospace;
       font-size: 0.75rem;
       background: rgba(15,23,42,0.9);
-      padding: 0.15rem 0.4rem;
+      padding: 0.15rem 0.5rem;
       border-radius: 9999px;
-      border: 1px solid rgba(75,85,99,0.7);
+      border: 1px solid rgba(75,85,99,0.8);
       color: #e5e7eb;
     }
-
+    .version {
+      margin-top: 0.8rem;
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-align: right;
+    }
     @media (max-width: 480px) {
       .card {
         padding: 1.25rem 1.1rem 1.5rem;
+        border-radius: 16px;
       }
     }
   </style>
@@ -127,7 +138,7 @@
       <span>燃費記録ランチャー</span>
     </h1>
     <div class="subtitle">
-      使いたい記録アプリを選んでね。トラックとスーパーカブを切り替えて管理できるよ。
+      トラックとスーパーカブの燃費記録を切り替えて管理できます。
     </div>
 
     <div id="lastChoice" class="last-choice"></div>
@@ -135,48 +146,49 @@
     <div class="btn-group">
       <button class="btn btn-truck" onclick="openApp('truck')">
         <span class="icon">🚛</span>
-        <span>トラック燃費記録 を開く</span>
+        <span>トラック燃費記録を開く</span>
       </button>
       <button class="btn btn-cub" onclick="openApp('cub')">
         <span class="icon">🛵</span>
-        <span>スーパーカブ燃費記録 を開く</span>
+        <span>スーパーカブ燃費記録を開く</span>
       </button>
     </div>
 
     <div class="hint">
-      ファイル名：<code>truck.html</code> / <code>cub.html</code> と同じフォルダに置いてね。
+      ファイル名：<code>truck.html</code> / <code>cub.html</code> と同じフォルダに置いてください。
     </div>
+    <div id="version" class="version"></div>
   </div>
 </div>
 
 <script>
-  // 最後に開いたアプリの表示
+  function openApp(type) {
+    const url = type === 'truck' ? 'truck.html' : 'cub.html';
+    localStorage.setItem('lastFuelApp', type);
+    location.href = url;
+  }
+
   (function showLastChoice() {
     const el = document.getElementById('lastChoice');
-    const last = localStorage.getItem('fuelAppLastChoice');
+    const last = localStorage.getItem('lastFuelApp');
     if (!last) {
       el.textContent = '前回の起動履歴はまだありません。';
       return;
     }
-    if (last === 'truck') {
-      el.textContent = '前回は「トラック燃費記録」を開きました。';
-    } else if (last === 'cub') {
-      el.textContent = '前回は「スーパーカブ燃費記録」を開きました。';
-    }
+    el.textContent = last === 'truck'
+      ? '前回は「トラック燃費記録」を開きました。'
+      : '前回は「スーパーカブ燃費記録」を開きました。';
   })();
 
-  function openApp(kind) {
-    let target = '';
-    if (kind === 'truck') {
-      target = 'truck.html';
-      localStorage.setItem('fuelAppLastChoice', 'truck');
-    } else if (kind === 'cub') {
-      target = 'cub.html';
-      localStorage.setItem('fuelAppLastChoice', 'cub');
-    } else {
-      return;
-    }
-    window.location.href = target;
+  (function showVersion() {
+    const v = document.getElementById('version');
+    const mod = document.lastModified;  // サーバ上の更新日時
+    v.textContent = 'Version ' + mod;
+  })();
+
+  if ('serviceWorker' in navigator &&
+      (location.protocol === 'http:' || location.protocol === 'https:')) {
+    navigator.serviceWorker.register('./sw.js').catch(console.error);
   }
 </script>
 </body>
