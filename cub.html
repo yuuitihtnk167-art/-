@@ -360,12 +360,11 @@
         </div>
         <div class="form-group">
           <label for="fuel">給油量 (L)</label>
-          <!-- テキスト入力＋内部で数値化（小数第2位まで） -->
-          <input type="text" id="fuel"
-                 inputmode="decimal"
-                 pattern="^[0-9０-９.,．]*$"
+          <!-- ★ここがポイント：小数第2位まで -->
+          <input type="number" id="fuel"
+                 step="0.01" inputmode="decimal"
                  placeholder="例: 3.65">
-          <small class="hint">小数第2位まで入力可（例: 3.65 / ３．６５）</small>
+          <small class="hint">小数第2位まで入力可（例: 3.65）</small>
         </div>
         <div class="form-group">
           <label for="memo">メモ</label>
@@ -512,25 +511,28 @@
 
   function handleSubmit(e) {
     e.preventDefault();
-    const fuelVal = document.getElementById('fuel').value;
-    const fuelNum = parseFuelInput(fuelVal);
     const odoNum = parseFloat(
-      toHalfWidth(document.getElementById('odometer').value)
+      document.getElementById('odometer').value
     );
+    const fuelRaw = document.getElementById('fuel').value;
+    const fuelNum = fuelRaw === '' ? NaN : parseFloat(fuelRaw);
 
     if (!document.getElementById('date').value || isNaN(odoNum)) {
       showNotification('日付とオドメーターは必須です。');
       return;
     }
-    if (fuelVal.trim() && isNaN(fuelNum)) {
+    if (fuelRaw.trim() && isNaN(fuelNum)) {
       showNotification('給油量が数値として読み取れません。');
       return;
     }
 
+    const fuelRounded =
+      isNaN(fuelNum) ? 0 : Math.round(fuelNum * 100) / 100;
+
     const data = {
       date: document.getElementById('date').value,
       odometer: odoNum,
-      fuel: isNaN(fuelNum) ? 0 : fuelNum,
+      fuel: fuelRounded,
       memo: document.getElementById('memo').value,
       timestamp: Date.now()
     };
@@ -624,7 +626,7 @@
       if (allLogs.length > 0) {
         const last = allLogs[allLogs.length - 1];
         document.getElementById('last-odometer-hint').textContent =
-          `最新の記録: ${last.date} / ${formatNumber(last.odometer)} km`;
+          `最新の記録: ${last.date} / ${last.odometer.toLocaleString('ja-JP', {maximumFractionDigits: 1})} km`;
       } else {
         document.getElementById('last-odometer-hint').textContent =
           'まだ記録がありません。';
@@ -643,10 +645,10 @@
       return;
     }
     const odo = parseFloat(
-      toHalfWidth(document.getElementById('odometer').value)
+      document.getElementById('odometer').value
     );
-    const fuelVal = document.getElementById('fuel').value;
-    const fuel = parseFuelInput(fuelVal);
+    const fuelRaw = document.getElementById('fuel').value;
+    const fuel = fuelRaw === '' ? NaN : parseFloat(fuelRaw);
 
     if (!odo || isNaN(fuel) || fuel <= 0) {
       card.classList.remove('visible');
@@ -657,7 +659,7 @@
       id: -1,
       date: document.getElementById('date').value || '',
       odometer: odo,
-      fuel
+      fuel: Math.round(fuel * 100) / 100
     }];
     temp.sort((a, b) => {
       if (a.date === b.date) return (a.odometer || 0) - (b.odometer || 0);
@@ -675,9 +677,9 @@
       return;
     }
     document.getElementById('preview-distance').textContent =
-      formatNumber(dist);
+      dist.toLocaleString('ja-JP', {maximumFractionDigits: 1});
     document.getElementById('preview-fuel').textContent =
-      fuel.toFixed(2);
+      (Math.round(fuel * 100) / 100).toFixed(2);
     document.getElementById('preview-efficiency').textContent =
       (dist / fuel).toFixed(2) + ' km/L';
     card.classList.add('visible');
@@ -699,7 +701,7 @@
         : log.efficiency.toFixed(2);
       const distText = log.isFirst || log.distance <= 0
         ? '(初回)'
-        : '+' + formatNumber(log.distance) + ' km';
+        : '+' + log.distance.toLocaleString('ja-JP', {maximumFractionDigits: 1}) + ' km';
       const memoText = [log.isAggregated ? '⚠️ 合算あり' : '', log.memo || '']
         .join(' ').trim();
       container.insertAdjacentHTML('beforeend', `
@@ -729,7 +731,7 @@
           <div class="log-details">
             <div class="log-stat-item">
               <span>オドメーター</span>
-              ${formatNumber(log.odometer)} km
+              ${log.odometer.toLocaleString('ja-JP', {maximumFractionDigits: 1})} km
             </div>
             <div class="log-stat-item">
               <span>給油量</span>
@@ -813,7 +815,7 @@
           <div class="summary-box">
             <div>総走行距離</div>
             <div style="font-weight:600; font-size:1.1rem;">
-              ${formatNumber(dist)} km
+              ${dist.toLocaleString('ja-JP', {maximumFractionDigits: 1})} km
             </div>
           </div>
           <div class="summary-box">
@@ -881,15 +883,16 @@
       const cols = lines[i].split(',').map(cleanCell);
       if (!cols[dateIdx] && !cols[odoIdx]) continue;
       const date = cols[dateIdx].replace(/\./g, '-').replace(/\//g, '-');
-      const odoStr = toHalfWidth(cols[odoIdx]).replace(/,/g, '');
+      const odoStr = cols[odoIdx].replace(/,/g, '');
       const fuelStr = cols[fuelIdx] || '';
       const odo = parseFloat(odoStr);
-      const fuel = parseFuelInput(fuelStr);
+      const fuelVal = fuelStr.replace(/,/g, '');
+      const fuel = fuelVal === '' ? NaN : parseFloat(fuelVal);
       if (!date || isNaN(odo) || isNaN(fuel)) continue;
       records.push({
         date,
         odometer: odo,
-        fuel,
+        fuel: Math.round(fuel * 100) / 100,
         memo: memoIdx >= 0 ? cols[memoIdx] : `CSV行${i + 1}`,
         timestamp: Date.now()
       });
@@ -957,14 +960,6 @@
     setTimeout(() => { el.style.display = 'none'; }, 4000);
   }
 
-  function toHalfWidth(str) {
-    return (str || '').replace(/[０-９．，]/g, ch => {
-      const code = ch.charCodeAt(0);
-      if (ch === '．') return '.';
-      if (ch === '，') return ',';
-      return String.fromCharCode(code - 0xFEE0);
-    });
-  }
   function cleanCell(c) {
     return c.replace(/^"|"$/g, '').trim();
   }
@@ -973,19 +968,6 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;',
       '"': '&quot;', "'": '&#039;'
     })[c]);
-  }
-  function formatNumber(n) {
-    if (!n && n !== 0) return '';
-    return Number(n).toLocaleString('ja-JP', { maximumFractionDigits: 1 });
-  }
-
-  // テキストから給油量をパースして小数第2位にそろえる
-  function parseFuelInput(value) {
-    const s = toHalfWidth(value || '').replace(/,/g, '').trim();
-    if (!s) return NaN;
-    const num = parseFloat(s);
-    if (isNaN(num)) return NaN;
-    return Math.round(num * 100) / 100;
   }
 </script>
 </body>
