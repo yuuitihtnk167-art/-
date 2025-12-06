@@ -9,6 +9,7 @@
   <meta name="description" content="スーパーカブ燃費管理アプリ">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛵</text></svg>">
+
   <style>
     :root {
       --primary-color: #0f766e;
@@ -61,6 +62,7 @@
       opacity: 0.5;
       text-decoration: line-through;
     }
+
     .container {
       max-width: 620px;
       margin: 0 auto;
@@ -90,6 +92,7 @@
       color: #0f766e;
       border-bottom-color: #0f766e;
     }
+
     .form-group { margin-bottom: 0.9rem; }
     label {
       display: block;
@@ -118,6 +121,7 @@
       border-color: #14b8a6;
       box-shadow: 0 0 0 3px rgba(45,212,191,0.25);
     }
+
     .btn {
       border: none;
       border-radius: 8px;
@@ -182,6 +186,7 @@
       color: #fff;
       font-size: 0.9rem;
     }
+
     #fuel-preview-card {
       background: var(--success-bg);
       color: var(--success-text);
@@ -202,6 +207,7 @@
       font-size: 0.8rem;
       margin-top: 0.2rem;
     }
+
     .log-card {
       background: var(--card-bg);
       border-radius: 8px;
@@ -266,6 +272,7 @@
       font-size: 0.8rem;
       font-weight: 600;
     }
+
     .summary-card {
       background: #0f766e;
       color: #fff;
@@ -295,6 +302,7 @@
       border-radius: 6px;
       font-size: 0.85rem;
     }
+
     .import-section {
       margin-top: 0.5rem;
       padding: 0.7rem;
@@ -303,6 +311,7 @@
       background: #f8fafc;
       font-size: 0.8rem;
     }
+
     #notification {
       position: fixed;
       bottom: 20px;
@@ -318,6 +327,7 @@
       box-shadow: 0 8px 20px rgba(0,0,0,0.4);
       white-space: nowrap;
     }
+
     .hidden { display: none; }
     small.hint { font-size: 0.75rem; color: #64748b; }
   </style>
@@ -342,7 +352,7 @@
       <div class="preview-value" id="preview-efficiency">-</div>
       <div class="preview-sub">
         走行: <span id="preview-distance">0</span> km /
-        給油: <span id="preview-fuel">0</span> L
+        給油: <span id="preview-fuel">0.00</span> L
       </div>
     </div>
 
@@ -355,16 +365,20 @@
         <div class="form-group">
           <label for="odometer">オドメーター (km)</label>
           <input type="number" id="odometer"
-                 placeholder="例: 56061.8" step="0.1" inputmode="decimal" required>
+                 step="0.1" inputmode="decimal"
+                 placeholder="例: 56061.8" required>
           <small id="last-odometer-hint" class="hint"></small>
         </div>
         <div class="form-group">
-          <label for="fuel">給油量 (L)</label>
-          <!-- ★ここがポイント：小数第2位まで -->
-          <input type="number" id="fuel"
-                 step="0.01" inputmode="decimal"
-                 placeholder="例: 3.65">
-          <small class="hint">小数第2位まで入力可（例: 3.65）</small>
+          <label for="fuel">今回給油量 (L)</label>
+          <!-- ★ここが重要：小数第2位まで扱える設定 -->
+          <input
+            type="number"
+            id="fuel"
+            step="0.01"
+            inputmode="decimal"
+            placeholder="例: 3.65">
+          <small class="hint">小数第2位まで入力可能（例: 3.65）</small>
         </div>
         <div class="form-group">
           <label for="memo">メモ</label>
@@ -425,13 +439,15 @@
 <div id="notification">保存しました</div>
 
 <script>
-  const DB_NAME = 'CubFuelDB';
-  const DB_VERSION = 2;
+  const DB_NAME = 'CubFuelDBV2';
+  const DB_VERSION = 1;
   const STORE_NAME = 'logs';
+
   let db;
   let allLogs = [];
   let editingId = null;
 
+  // サウンド
   let isSoundOn = localStorage.getItem('cubAppSound') !== 'off';
   let audioCtx = null;
 
@@ -439,6 +455,7 @@
     document.getElementById('date').valueAsDate = new Date();
     document.getElementById('summaryMonth').value =
       new Date().toISOString().slice(0, 7);
+
     initDB();
     updateSoundButton();
 
@@ -461,6 +478,7 @@
     updateSoundButton();
     if (isSoundOn) playHorn();
   }
+
   function updateSoundButton() {
     const btn = document.getElementById('sound-toggle');
     if (isSoundOn) {
@@ -471,6 +489,7 @@
       btn.classList.add('muted');
     }
   }
+
   function playHorn() {
     if (!isSoundOn) return;
     if (!audioCtx) {
@@ -478,14 +497,17 @@
       audioCtx = new AC();
     }
     if (audioCtx.state === 'suspended') audioCtx.resume();
+
     const now = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(660, now);
+
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.4, now + 0.03);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     osc.start(now);
@@ -497,27 +519,29 @@
     req.onupgradeneeded = e => {
       db = e.target.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME,
-                          { keyPath: 'id', autoIncrement: true });
+        const store = db.createObjectStore(
+          STORE_NAME,
+          { keyPath: 'id', autoIncrement: true }
+        );
         store.createIndex('date', 'date');
       }
     };
     req.onsuccess = e => { db = e.target.result; loadLogs(); };
-    req.onerror = e => {
-      console.error(e);
+    req.onerror = () => {
       showNotification('データベースが開けません。');
     };
   }
 
   function handleSubmit(e) {
     e.preventDefault();
-    const odoNum = parseFloat(
-      document.getElementById('odometer').value
-    );
+
+    const date = document.getElementById('date').value;
+    const odo = parseFloat(document.getElementById('odometer').value);
     const fuelRaw = document.getElementById('fuel').value;
     const fuelNum = fuelRaw === '' ? NaN : parseFloat(fuelRaw);
+    const memo = document.getElementById('memo').value;
 
-    if (!document.getElementById('date').value || isNaN(odoNum)) {
+    if (!date || isNaN(odo)) {
       showNotification('日付とオドメーターは必須です。');
       return;
     }
@@ -526,14 +550,15 @@
       return;
     }
 
+    // ★ここで小数第2位に丸める（保存形式を統一）
     const fuelRounded =
       isNaN(fuelNum) ? 0 : Math.round(fuelNum * 100) / 100;
 
     const data = {
-      date: document.getElementById('date').value,
-      odometer: odoNum,
+      date,
+      odometer: odo,
       fuel: fuelRounded,
-      memo: document.getElementById('memo').value,
+      memo,
       timestamp: Date.now()
     };
 
@@ -564,7 +589,10 @@
     const req = store.get(id);
     req.onsuccess = () => {
       const old = req.result;
-      if (!old) { addLog(data); return; }
+      if (!old) {
+        store.add(data);
+        return;
+      }
       const updated = { ...old, ...data, id };
       store.put(updated);
     };
@@ -581,8 +609,10 @@
     editingId = null;
     document.getElementById('fuelForm').reset();
     document.getElementById('date').valueAsDate = new Date();
-    document.getElementById('submitButton').textContent = '💾 記録を追加する';
-    document.getElementById('fuel-preview-card').classList.remove('visible');
+    document.getElementById('submitButton').textContent =
+      '💾 記録を追加する';
+    document.getElementById('fuel-preview-card')
+      .classList.remove('visible');
   }
 
   function loadLogs() {
@@ -590,10 +620,15 @@
     const tx = db.transaction([STORE_NAME], 'readonly');
     tx.objectStore(STORE_NAME).getAll().onsuccess = e => {
       const raw = e.target.result || [];
+
+      // 日付 → オドメーター順に並べ替えてから距離・燃費計算
       raw.sort((a, b) => {
-        if (a.date === b.date) return (a.odometer || 0) - (b.odometer || 0);
+        if (a.date === b.date) {
+          return (a.odometer || 0) - (b.odometer || 0);
+        }
         return a.date < b.date ? -1 : 1;
       });
+
       let prev = null;
       allLogs = raw.map((log, idx) => {
         let distance = 0;
@@ -602,15 +637,22 @@
           isFirst = true;
         } else if (prev && typeof prev.odometer === 'number') {
           const d = (log.odometer || 0) - (prev.odometer || 0);
-          if (d > 0) distance = d;
-          else isFirst = true;
+          if (d > 0) {
+            distance = d;
+          } else {
+            isFirst = true;
+          }
         }
+
+        // ★燃料は常に小数第2位で統一
         const f = typeof log.fuel === 'number'
           ? Math.round(log.fuel * 100) / 100
           : 0;
+
         const totalFuel = f;
         const efficiency =
           distance > 0 && totalFuel > 0 ? distance / totalFuel : 0;
+
         const enriched = {
           ...log,
           fuel: f,
@@ -626,7 +668,8 @@
       if (allLogs.length > 0) {
         const last = allLogs[allLogs.length - 1];
         document.getElementById('last-odometer-hint').textContent =
-          `最新の記録: ${last.date} / ${last.odometer.toLocaleString('ja-JP', {maximumFractionDigits: 1})} km`;
+          `最新の記録: ${last.date} / ` +
+          `${last.odometer.toLocaleString('ja-JP',{maximumFractionDigits:1})} km`;
       } else {
         document.getElementById('last-odometer-hint').textContent =
           'まだ記録がありません。';
@@ -644,44 +687,53 @@
       card.classList.remove('visible');
       return;
     }
-    const odo = parseFloat(
-      document.getElementById('odometer').value
-    );
-    const fuelRaw = document.getElementById('fuel').value;
-    const fuel = fuelRaw === '' ? NaN : parseFloat(fuelRaw);
 
-    if (!odo || isNaN(fuel) || fuel <= 0) {
+    const date = document.getElementById('date').value || '';
+    const odo = parseFloat(document.getElementById('odometer').value);
+    const fuelRaw = document.getElementById('fuel').value;
+    const fuelNum = fuelRaw === '' ? NaN : parseFloat(fuelRaw);
+
+    if (!date || isNaN(odo) || isNaN(fuelNum) || fuelNum <= 0) {
       card.classList.remove('visible');
       return;
     }
 
+    const fuelRounded = Math.round(fuelNum * 100) / 100;
+
     const temp = [...allLogs, {
       id: -1,
-      date: document.getElementById('date').value || '',
+      date,
       odometer: odo,
-      fuel: Math.round(fuel * 100) / 100
+      fuel: fuelRounded
     }];
+
     temp.sort((a, b) => {
-      if (a.date === b.date) return (a.odometer || 0) - (b.odometer || 0);
+      if (a.date === b.date) {
+        return (a.odometer || 0) - (b.odometer || 0);
+      }
       return a.date < b.date ? -1 : 1;
     });
+
     const idx = temp.findIndex(l => l.id === -1);
     if (idx <= 0) {
       card.classList.remove('visible');
       return;
     }
+
     const prev = temp[idx - 1];
     const dist = odo - (prev.odometer || 0);
     if (dist <= 0) {
       card.classList.remove('visible');
       return;
     }
+
     document.getElementById('preview-distance').textContent =
-      dist.toLocaleString('ja-JP', {maximumFractionDigits: 1});
+      dist.toLocaleString('ja-JP', { maximumFractionDigits: 1 });
     document.getElementById('preview-fuel').textContent =
-      (Math.round(fuel * 100) / 100).toFixed(2);
+      fuelRounded.toFixed(2);
     document.getElementById('preview-efficiency').textContent =
-      (dist / fuel).toFixed(2) + ' km/L';
+      (dist / fuelRounded).toFixed(2) + ' km/L';
+
     card.classList.add('visible');
   }
 
@@ -693,6 +745,7 @@
         '<p style="text-align:center; padding:2rem 0; color:#888;">まだデータがありません。</p>';
       return;
     }
+
     [...allLogs].slice().reverse().forEach(log => {
       const dateStr = log.date || '';
       const fuelText = log.totalFuel > 0 ? log.totalFuel.toFixed(2) : '-';
@@ -701,9 +754,9 @@
         : log.efficiency.toFixed(2);
       const distText = log.isFirst || log.distance <= 0
         ? '(初回)'
-        : '+' + log.distance.toLocaleString('ja-JP', {maximumFractionDigits: 1}) + ' km';
-      const memoText = [log.isAggregated ? '⚠️ 合算あり' : '', log.memo || '']
-        .join(' ').trim();
+        : '+' + log.distance.toLocaleString('ja-JP',{maximumFractionDigits:1}) + ' km';
+      const memoText = log.memo || '';
+
       container.insertAdjacentHTML('beforeend', `
         <div class="log-card">
           <div class="log-header">
@@ -731,14 +784,16 @@
           <div class="log-details">
             <div class="log-stat-item">
               <span>オドメーター</span>
-              ${log.odometer.toLocaleString('ja-JP', {maximumFractionDigits: 1})} km
+              ${log.odometer.toLocaleString('ja-JP',{maximumFractionDigits:1})} km
             </div>
             <div class="log-stat-item">
-              <span>給油量</span>
+              <span>今回給油量</span>
               <span class="fuel-badge">${fuelText} L</span>
             </div>
           </div>
-          ${memoText ? `<div class="log-footer">${escapeHtml(memoText)}</div>` : ''}
+          ${memoText
+            ? `<div class="log-footer">${escapeHtml(memoText)}</div>`
+            : ''}
         </div>
       `);
     });
@@ -756,7 +811,8 @@
         ? (Math.round(f * 100) / 100).toFixed(2)
         : '';
     document.getElementById('memo').value = log.memo || '';
-    document.getElementById('submitButton').textContent = '✏️ 記録を更新する';
+    document.getElementById('submitButton').textContent =
+      '✏️ 記録を更新する';
     switchTab('input');
     updatePreview();
   }
@@ -789,12 +845,14 @@
     const month = document.getElementById('summaryMonth').value;
     const container = document.getElementById('summary-content');
     if (!month) return;
+
     const monthly = allLogs.filter(l => (l.date || '').startsWith(month));
     if (monthly.length === 0) {
       container.innerHTML =
         '<p style="text-align:center; padding:2rem 0; color:#888;">データなし</p>';
       return;
     }
+
     let dist = 0;
     let fuel = 0;
     monthly.forEach(l => {
@@ -803,7 +861,9 @@
         fuel += l.totalFuel;
       }
     });
+
     const avg = dist > 0 && fuel > 0 ? (dist / fuel).toFixed(2) : '-';
+
     container.innerHTML = `
       <div class="summary-card">
         <div>月平均燃費</div>
@@ -815,7 +875,7 @@
           <div class="summary-box">
             <div>総走行距離</div>
             <div style="font-weight:600; font-size:1.1rem;">
-              ${dist.toLocaleString('ja-JP', {maximumFractionDigits: 1})} km
+              ${dist.toLocaleString('ja-JP',{maximumFractionDigits:1})} km
             </div>
           </div>
           <div class="summary-box">
@@ -836,10 +896,12 @@
     document
       .querySelector(`.tab-btn[onclick*="${tab}"]`)
       .classList.add('active');
+
     document.querySelectorAll('.tab-content').forEach(v => {
       v.classList.add('hidden');
     });
     document.getElementById(`view-${tab}`).classList.remove('hidden');
+
     if (tab === 'list') renderList();
     if (tab === 'summary') renderSummary();
   }
@@ -862,7 +924,10 @@
 
   function parseAndImport(csv) {
     if (!db) return;
-    const lines = csv.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+
+    const lines = csv.split(/\r?\n/)
+                     .map(l => l.trim())
+                     .filter(l => l);
     if (lines.length <= 1) {
       showNotification('有効なデータが見つかりません。');
       return;
@@ -879,24 +944,31 @@
     });
 
     const records = [];
+
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(cleanCell);
       if (!cols[dateIdx] && !cols[odoIdx]) continue;
-      const date = cols[dateIdx].replace(/\./g, '-').replace(/\//g, '-');
+
+      const date = cols[dateIdx].replace(/\./g,'-').replace(/\//g,'-');
       const odoStr = cols[odoIdx].replace(/,/g, '');
-      const fuelStr = cols[fuelIdx] || '';
+      const fuelStr = (cols[fuelIdx] || '').replace(/,/g,'');
+
       const odo = parseFloat(odoStr);
-      const fuelVal = fuelStr.replace(/,/g, '');
-      const fuel = fuelVal === '' ? NaN : parseFloat(fuelVal);
-      if (!date || isNaN(odo) || isNaN(fuel)) continue;
+      const fuelNum = fuelStr === '' ? NaN : parseFloat(fuelStr);
+
+      if (!date || isNaN(odo) || isNaN(fuelNum)) continue;
+
+      const fuelRounded = Math.round(fuelNum * 100) / 100;
+
       records.push({
         date,
         odometer: odo,
-        fuel: Math.round(fuel * 100) / 100,
-        memo: memoIdx >= 0 ? cols[memoIdx] : `CSV行${i + 1}`,
+        fuel: fuelRounded,
+        memo: memoIdx >= 0 ? cols[memoIdx] : `CSV行${i+1}`,
         timestamp: Date.now()
       });
     }
+
     if (records.length === 0) {
       showNotification('取り込める行がありませんでした。');
       return;
@@ -929,8 +1001,8 @@
       showNotification('データがありません。');
       return;
     }
-    let csv =
-      '日付,オドメーター,走行距離,給油量,燃費,メモ\n';
+
+    let csv = '日付,オドメーター,走行距離,給油量,燃費,メモ\n';
     allLogs.forEach(l => {
       csv += [
         l.date,
@@ -938,11 +1010,12 @@
         l.isFirst ? 0 : l.distance,
         (l.totalFuel || 0).toFixed(2),
         l.isFirst ? 0 : l.efficiency.toFixed(2),
-        `"${(l.memo || '').replace(/"/g, '""')}"`
+        `"${(l.memo || '').replace(/"/g,'""')}"`
       ].join(',') + '\n';
     });
+
     const blob = new Blob(
-      [new Uint8Array([0xEF, 0xBB, 0xBF]), csv],
+      [new Uint8Array([0xEF,0xBB,0xBF]), csv],
       { type: 'text/csv' }
     );
     const url = URL.createObjectURL(blob);
@@ -963,11 +1036,12 @@
   function cleanCell(c) {
     return c.replace(/^"|"$/g, '').trim();
   }
+
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;',
-      '"': '&quot;', "'": '&#039;'
-    })[c]);
+      '&':'&amp;','<':'&lt;','>':'&gt;',
+      '"':'&quot;',"'":'&#039;'
+    }[c]));
   }
 </script>
 </body>
