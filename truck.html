@@ -332,7 +332,7 @@
       <div class="preview-value" id="preview-efficiency">-</div>
       <div class="preview-sub">
         走行: <span id="preview-distance">0</span> km /
-        給油: <span id="preview-fuel">0.00</span> L
+        給油: <span id="preview-fuel">0</span> L
       </div>
     </div>
 
@@ -608,7 +608,7 @@
     }
     document.getElementById('preview-distance').textContent =
       formatNumber(dist);
-    // 合計給油量：2桁固定
+    // ★ プレビューの合計給油量を小数点2桁表示に変更
     document.getElementById('preview-fuel').textContent =
       totalFuel.toFixed(2);
     document.getElementById('preview-efficiency').textContent =
@@ -626,7 +626,7 @@
     }
     [...allLogs].slice().reverse().forEach(log => {
       const dateStr = log.date || '';
-      // 合計給油量：2桁固定
+      // ★ 給油合計の表示を小数点2桁に変更
       const fuelText = log.totalFuel > 0 ? log.totalFuel.toFixed(2) : '-';
       const effText = log.isFirst || log.efficiency <= 0
         ? '-'
@@ -865,11 +865,12 @@
         l.date,
         l.odometer,
         l.isFirst ? 0 : l.distance,
+        // ★ CSV出力も小数点2桁で統一
         (l.fuelA || 0).toFixed(2),
         (l.fuelB || 0).toFixed(2),
         (l.totalFuel || 0).toFixed(2),
         l.isFirst ? 0 : l.efficiency.toFixed(2),
-        "\"" + (l.memo || '').replace(/"/g, '""') + "\""
+        `"${(l.memo || '').replace(/"/g, '""')}"`
       ].join(',') + '\n';
     });
     const blob = new Blob(
