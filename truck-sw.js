@@ -2,10 +2,10 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open('truck-cache').then((cache) => {
       return cache.addAll([
-        '/',
-        '/truck.html',
-        '/truck.css',
-        '/truck.js',  // これらのファイルをキャッシュ
+        './',            // トップページ
+        './truck.html',  // メインHTML
+        './truck.css',   // スタイル
+        './truck.js'     // JavaScript
       ]);
     })
   );
